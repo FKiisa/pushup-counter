@@ -3,14 +3,11 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-
 def day_of_year(d: date) -> int:
     return (d - date(d.year, 1, 1)).days + 1
 
-
 def is_leap(y: int) -> bool:
     return (y % 4 == 0 and y % 100 != 0) or (y % 400 == 0)
-
 
 def load_font(size: int) -> ImageFont.FreeTypeFont:
     candidates = [
@@ -24,26 +21,18 @@ def load_font(size: int) -> ImageFont.FreeTypeFont:
             pass
     return ImageFont.load_default()
 
-
 def text_w(draw: ImageDraw.ImageDraw, text: str, font) -> int:
     b = draw.textbbox((0, 0), text, font=font)
     return b[2] - b[0]
 
-
 def center_x(draw: ImageDraw.ImageDraw, text: str, font, W: int) -> int:
     return (W - text_w(draw, text, font)) // 2
-
-
-def rounded_bar(draw, x, y, w, h, r, fill):
-    draw.rounded_rectangle((x, y, x + w, y + h), radius=r, fill=fill)
-
 
 def make_frame(today: date, doy: int, total: int, t: float) -> Image.Image:
     W, H = 1080, 1080
     bg = (16, 18, 22)
     fg = (235, 238, 245)
     muted = (155, 160, 172)
-    bar_bg = (40, 44, 54)
 
     img = Image.new("RGB", (W, H), bg)
     draw = ImageDraw.Draw(img)
@@ -72,21 +61,7 @@ def make_frame(today: date, doy: int, total: int, t: float) -> Image.Image:
     draw.text((center_x(draw, big, font_big, W), 320), big, font=font_big, fill=fg_f)
     draw.text((center_x(draw, dstr, font_date, W), 610), dstr, font=font_date, fill=muted_f)
     draw.text((center_x(draw, bottom, font_small, W), 760), bottom, font=font_small, fill=fg_f)
-
-    bar_w = 760
-    bar_h = 16
-    bar_x = (W - bar_w) // 2
-    bar_y = 880
-    r = 8
-
-    rounded_bar(draw, bar_x, bar_y, bar_w, bar_h, r, bar_bg)
-    frac = doy / total
-    target_w = max(1, int(bar_w * frac))
-    fill_w = max(1, int(target_w * e))
-    rounded_bar(draw, bar_x, bar_y, fill_w, bar_h, r, fg)
-
     return img
-
 
 def main():
     today = date.today()
@@ -121,7 +96,6 @@ def main():
     )
 
     print(f"Generated: public/day.png and public/day.gif (DAY {doy}/{total})")
-
 
 if __name__ == "__main__":
     main()
