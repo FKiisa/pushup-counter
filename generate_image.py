@@ -1,14 +1,15 @@
 from datetime import date
 from pathlib import Path
 import random
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageChops
 
-W, H = 1080, 1080
+W, H = 1920, 600
 BG = (16, 18, 22)
 FG = (235, 238, 245)
 MUTED = (155, 160, 172)
 
-MODE = "FOUR"  # "ONE" or "FOUR"
+MODE = "FOUR"
+FACE_SCALE = 3.2
 
 
 def day_of_year(d: date) -> int:
@@ -27,27 +28,8 @@ def load_font(size: int) -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-def center_text(draw: ImageDraw.ImageDraw, text: str, font, y: int, fill):
-    b = draw.textbbox((0, 0), text, font=font)
-    x = (W - (b[2] - b[0])) // 2
-    draw.text((x, y), text, font=font, fill=fill)
-
-
 def daily_rng(d: date) -> random.Random:
     return random.Random(d.year * 10000 + d.month * 100 + d.day)
-
-
-def load_faces(folder="faces"):
-    p = Path(folder)
-    if not p.exists():
-        return []
-    faces = []
-    for fp in sorted(p.glob("*.png")):
-        try:
-            faces.append(Image.open(fp).convert("RGBA"))
-        except Exception:
-            pass
-    return faces
 
 
 def crop_to_content(img: Image.Image) -> Image.Image:
@@ -62,19 +44,17 @@ def circle_mask(size: int) -> Image.Image:
     return m
 
 
-def place_face(canvas_rgba: Image.Image, face_rgba: Image.Image, center_xy, radius_px, tilt_deg):
-    face = crop_to_content(face_rgba)
-    target = max(2, int(radius_px * 2.25))
-    face = face.resize((target, target), Image.Resampling.LANCZOS)
-    if tilt_deg:
-        face = face.rotate(tilt_deg, resample=Image.Resampling.BICUBIC, expand=True)
-    side = max(face.size)
-    tmp = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-    tmp.alpha_composite(face, ((side - face.width) // 2, (side - face.height) // 2))
-    m = circle_mask(side)
-    tmp.putalpha(ImageChops.multiply(tmp.split()[-1], m))
-    x, y = center_xy
-    canvas_rgba.alpha_composite(tmp, (x - side // 2, y - side // 2))
+def load_faces(folder="faces"):
+    p = Path(folder)
+    if not p.exists():
+        return []
+    out = []
+    for fp in sorted(p.glob("*.png")):
+        try:
+            out.append(Image.open(fp).convert("RGBA"))
+        except Exception:
+            pass
+    return out
 
 
 def ease_in_out(t: float) -> float:
@@ -130,66 +110,38 @@ def draw_stickman(draw: ImageDraw.ImageDraw, cx: int, cy: int, s: float, t: floa
     return (hx, hy), head_r
 
 
+def face_stamp(face_rgba: Image.Image, target_px: int, tilt_deg: int):
+    f = crop_to_content(face_rgba)
+    f = f.resize((target_px, target_px), Image.Resampling.LANCZOS)
+    if tilt_deg:
+        f = f.rotate(tilt_deg, resample=Image.Resampling.BICUBIC, expand=True)
+    side = max(f.size)
+    tmp = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    tmp.alpha_composite(f, ((side - f.width) // 2, (side - f.height) // 2))
+    m = circle_mask(side)
+    tmp.putalpha(ImageChops.multiply(tmp.split()[-1], m))
+    return tmp
+
+
 def make_base(today: date, doy: int) -> Image.Image:
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
-    font_title = load_font(64)
-    font_big = load_font(220)
-    font_date = load_font(54)
-    font_small = load_font(46)
+    font_big = load_font(92)
+    font_mid = load_font(56)
 
-    center_text(draw, "Täna on aasta", font_title, 140, FG)
-    center_text(draw, f"{doy}. päev", font_big, 320, FG)
-    center_text(draw, today.strftime("%d.%m.%Y"), font_date, 610, MUTED)
-    center_text(draw, f"Tee {doy} kätekõverdust", font_small, 760, FG)
+    draw.text((80, 70), f"Tee {doy} kätekõverdust", font=font_big, fill=FG)
+    draw.text((80, 170), f"{today.strftime('%d.%m.%Y')}  •  Aasta {doy}. päev", font=font_mid, fill=MUTED)
 
     return img
 
 
-def render_one(base_rgb: Image.Image, faces, rng: random.Random, t: float, today: date) -> Image.Image:
+def render_four(base_rgb: Image.Image, frame_i: int, frames_n: int, faces, speeds, tilts, stamps):
     img = base_rgb.convert("RGBA")
     draw = ImageDraw.Draw(img)
 
-    cx, cy, s = 540, 900, 1.05
-    (hx, hy), hr = draw_stickman(draw, cx, cy, s, t, FG)
-
-    if faces:
-        face = rng.choice(faces)
-        tilt = rng.randint(-10, 10)
-        face = crop_to_content(face)
-        target = max(2, int(hr * 2.25))
-        face = face.resize((target, target), Image.Resampling.LANCZOS)
-        if tilt:
-            face = face.rotate(tilt, resample=Image.Resampling.BICUBIC, expand=True)
-        side = max(face.size)
-        tmp = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-        tmp.alpha_composite(face, ((side - face.width) // 2, (side - face.height) // 2))
-        m = circle_mask(side)
-        tmp.putalpha(ImageChops.multiply(tmp.split()[-1], m))
-        img.alpha_composite(tmp, (hx - side // 2, hy - side // 2))
-
-    return img
-
-
-def render_four(base_rgb: Image.Image, faces, rng: random.Random, frame_i: int, frames_n: int, today: date) -> Image.Image:
-    img = base_rgb.convert("RGBA")
-    draw = ImageDraw.Draw(img)
-
-    centers = [(220, 905), (460, 905), (700, 905), (940, 905)]
-    scales = [0.70, 0.78, 0.72, 0.82]
-    speeds = [rng.uniform(0.75, 1.65) for _ in range(4)]
-    tilts = [rng.randint(-12, 12) for _ in range(4)]
-
-    chosen = []
-    if faces:
-        pool = faces[:]
-        rng.shuffle(pool)
-        while len(pool) < 4:
-            pool += faces
-        chosen = pool[:4]
-    else:
-        chosen = [None, None, None, None]
+    centers = [(240, 360), (720, 360), (1200, 360), (1680, 360)]
+    scales = [0.88, 0.90, 0.86, 0.92]
 
     base_phase = frame_i / (frames_n - 1) if frames_n > 1 else 1.0
 
@@ -197,19 +149,22 @@ def render_four(base_rgb: Image.Image, faces, rng: random.Random, frame_i: int, 
         t = (base_phase * speeds[i]) % 1.0
         (hx, hy), hr = draw_stickman(draw, cx, cy, scales[i], t, FG)
 
-        face = chosen[i]
-        if face is not None:
-            face2 = crop_to_content(face)
-            target = max(2, int(hr * 2.30))
-            face2 = face2.resize((target, target), Image.Resampling.LANCZOS)
-            if tilts[i]:
-                face2 = face2.rotate(tilts[i], resample=Image.Resampling.BICUBIC, expand=True)
-            side = max(face2.size)
-            tmp = Image.new("RGBA", (side, side), (0, 0, 0, 0))
-            tmp.alpha_composite(face2, ((side - face2.width) // 2, (side - face2.height) // 2))
-            m = circle_mask(side)
-            tmp.putalpha(ImageChops.multiply(tmp.split()[-1], m))
-            img.alpha_composite(tmp, (hx - side // 2, hy - side // 2))
+        if stamps[i] is not None:
+            st = stamps[i]
+            img.alpha_composite(st, (hx - st.width // 2, hy - st.height // 2))
+
+    return img
+
+
+def render_one(base_rgb: Image.Image, t: float, stamp):
+    img = base_rgb.convert("RGBA")
+    draw = ImageDraw.Draw(img)
+
+    cx, cy, s = 960, 380, 1.1
+    (hx, hy), hr = draw_stickman(draw, cx, cy, s, t, FG)
+
+    if stamp is not None:
+        img.alpha_composite(stamp, (hx - stamp.width // 2, hy - stamp.height // 2))
 
     return img
 
@@ -225,9 +180,8 @@ def main():
     out_dir = Path("public")
     out_dir.mkdir(exist_ok=True)
 
-    faces = load_faces("faces")
     rng = daily_rng(today)
-
+    faces = load_faces("faces")
     base = make_base(today, doy)
 
     base.save(out_dir / "day.png", format="PNG", optimize=True)
@@ -237,17 +191,42 @@ def main():
     frames_n = max(12, int(fps * duration_s))
     frame_ms = int(1000 / fps)
 
-    frames = []
-    for i in range(frames_n):
-        if MODE == "ONE":
+    if MODE == "ONE":
+        stamp = None
+        if faces:
+            f = rng.choice(faces)
+            tilt = rng.randint(-10, 10)
+            stamp = face_stamp(f, int(14 * 1.1 * FACE_SCALE * 2), tilt)
+        frames = []
+        for i in range(frames_n):
             t = i / (frames_n - 1) if frames_n > 1 else 1.0
-            fr = render_one(base, faces, rng, t, today)
+            frames.append(to_palette(render_one(base, t, stamp)))
+    else:
+        speeds = [rng.uniform(0.75, 1.65) for _ in range(4)]
+        tilts = [rng.randint(-12, 12) for _ in range(4)]
+        chosen = []
+        if faces:
+            pool = faces[:]
+            rng.shuffle(pool)
+            while len(pool) < 4:
+                pool += faces
+            chosen = pool[:4]
         else:
-            fr = render_four(base, faces, rng, i, frames_n, today)
-        frames.append(to_palette(fr))
+            chosen = [None, None, None, None]
+
+        stamps = []
+        for i in range(4):
+            if chosen[i] is None:
+                stamps.append(None)
+            else:
+                stamps.append(face_stamp(chosen[i], int(14 * 0.9 * FACE_SCALE * 2), tilts[i]))
+
+        frames = []
+        for i in range(frames_n):
+            frames.append(to_palette(render_four(base, i, frames_n, faces, speeds, tilts, stamps)))
 
     frames[0].save(
-        out_dir / "day.gif",
+        out_dir / reminding.gif if False else out_dir / "day.gif",
         save_all=True,
         append_images=frames[1:],
         duration=frame_ms,
@@ -258,5 +237,4 @@ def main():
 
 
 if __name__ == "__main__":
-    from PIL import ImageChops
     main()
