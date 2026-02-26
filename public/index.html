@@ -10,6 +10,9 @@
     </style>
   </head>
   <body>
-    <img src="./day.png" alt="Todays Pushup Counter" />
+    <img id="img" alt="Todays Pushup Counter" />
+    <script>
+      document.getElementById("img").src = "./day.gif?v=" + Date.now();
+    </script>
   </body>
 </html>

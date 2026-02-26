@@ -17,8 +17,22 @@ def day_of_year(d: date) -> int:
     return (d - date(d.year, 1, 1)).days + 1
 
 
+def days_in_year(year: int) -> int:
+    jan1 = date(year, 1, 1)
+    jan1_next = date(year + 1, 1, 1)
+    return (jan1_next - jan1).days
+
+
+def total_pushups_until_day(day_n: int) -> int:
+    return day_n * (day_n + 1) // 2
+
+
 def load_font(size: int) -> ImageFont.FreeTypeFont:
     for p in (
+        "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/System/Library/Fonts/Supplemental/Helvetica.ttc",
+        "/System/Library/Fonts/SFNS.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     ):
@@ -88,71 +102,104 @@ def face_stamp(face_rgba: Image.Image, size_px: int, tilt_deg: int):
 
 def draw_front_pushup(draw: ImageDraw.ImageDraw, cx: int, cy: int, s: float, t: float, color):
     p = pushup_phase(t)
-    body_drop = int((46 * s) * p)
-
     w = max(2, int(8 * s))
-    gy = cy + int(120 * s)
+    gy = cy + int(126 * s)
     draw.line((cx - int(170 * s), gy, cx + int(170 * s), gy), fill=color, width=max(2, int(5 * s)))
 
+    shoulder_y = int(lerp(cy - int(6 * s), cy + int(52 * s), p))
+    hip_y = shoulder_y + int(lerp(54 * s, 34 * s, p))
+    shoulder_w = int(92 * s)
+    hip_w = int(132 * s)
+
     head_r = int(30 * s)
-    hx, hy = cx, cy - int(45 * s) + body_drop
+    hx = cx
+    hy = shoulder_y - int(58 * s) + int(lerp(0, 8 * s, p))
     draw.ellipse((hx - head_r, hy - head_r, hx + head_r, hy + head_r), outline=color, width=w)
 
-    shoulder_y = cy + int(10 * s) + body_drop
-    hip_y = cy + int(62 * s) + body_drop
-    shoulder_w = int(90 * s)
-    hip_w = int(130 * s)
+    left_shoulder = (cx - shoulder_w, shoulder_y)
+    right_shoulder = (cx + shoulder_w, shoulder_y)
+    left_hip = (cx - hip_w, hip_y)
+    right_hip = (cx + hip_w, hip_y)
 
-    draw.line((cx - shoulder_w, shoulder_y, cx + shoulder_w, shoulder_y), fill=color, width=w)
-    draw.line((cx - hip_w, hip_y, cx + hip_w, hip_y), fill=color, width=w)
-    draw.line((cx, shoulder_y, cx, hip_y), fill=color, width=w)
+    draw.line((left_shoulder, right_shoulder), fill=color, width=w)
+    draw.line((left_hip, right_hip), fill=color, width=w)
+    draw.line(((cx, shoulder_y), (cx, hip_y)), fill=color, width=w)
 
-    hand_y = gy - int(10 * s)
-    hand_x = int(110 * s)
+    hand_y = gy - int(9 * s)
+    hand_x = int(115 * s)
+    left_hand = (cx - hand_x, hand_y)
+    right_hand = (cx + hand_x, hand_y)
 
-    elbow_y = int(lerp(shoulder_y + int(22 * s), shoulder_y + int(92 * s), p))
-    draw.line((cx - shoulder_w, shoulder_y, cx - shoulder_w, elbow_y), fill=color, width=w)
-    draw.line((cx + shoulder_w, shoulder_y, cx + shoulder_w, elbow_y), fill=color, width=w)
+    elbow_y = int(lerp(shoulder_y + int(14 * s), shoulder_y + int(74 * s), p))
+    elbow_inset = int(lerp(12 * s, 36 * s, p))
+    left_elbow = (cx - shoulder_w + elbow_inset, elbow_y)
+    right_elbow = (cx + shoulder_w - elbow_inset, elbow_y)
 
-    draw.line((cx - shoulder_w, elbow_y, cx - hand_x, hand_y), fill=color, width=w)
-    draw.line((cx + shoulder_w, elbow_y, cx + hand_x, hand_y), fill=color, width=w)
+    draw.line((left_shoulder, left_elbow), fill=color, width=w)
+    draw.line((left_elbow, left_hand), fill=color, width=w)
+    draw.line((right_shoulder, right_elbow), fill=color, width=w)
+    draw.line((right_elbow, right_hand), fill=color, width=w)
 
-    foot_y = gy - int(10 * s)
-    foot_x = int(150 * s)
-    knee_y = int(lerp(hip_y + int(12 * s), hip_y + int(42 * s), p))
+    foot_y = gy - int(9 * s)
+    foot_x = int(152 * s)
+    left_foot = (cx - foot_x, foot_y)
+    right_foot = (cx + foot_x, foot_y)
 
-    draw.line((cx - hip_w, hip_y, cx - int(78 * s), knee_y), fill=color, width=w)
-    draw.line((cx + hip_w, hip_y, cx + int(78 * s), knee_y), fill=color, width=w)
-    draw.line((cx - int(78 * s), knee_y, cx - foot_x, foot_y), fill=color, width=w)
-    draw.line((cx + int(78 * s), knee_y, cx + foot_x, foot_y), fill=color, width=w)
+    knee_y = int(lerp(hip_y + int(8 * s), hip_y + int(30 * s), p))
+    knee_out = int(74 * s)
+    left_knee = (cx - knee_out, knee_y)
+    right_knee = (cx + knee_out, knee_y)
+
+    draw.line((left_hip, left_knee), fill=color, width=w)
+    draw.line((left_knee, left_foot), fill=color, width=w)
+    draw.line((right_hip, right_knee), fill=color, width=w)
+    draw.line((right_knee, right_foot), fill=color, width=w)
 
     return (hx, hy), head_r
 
 
-def make_base(today: date, doy: int) -> Image.Image:
+def make_base(today: date, doy: int, total_done: int, yearly_target: int) -> Image.Image:
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
 
     font_title = load_font(86)
     font_mid = load_font(52)
+    font_small = load_font(42)
 
     draw.text((70, 90), f"Tee {doy} kätekõverdust", font=font_title, fill=FG)
     draw.text((70, 200), f"{today.strftime('%d.%m.%Y')}  •  Aasta {doy}. päev", font=font_mid, fill=MUTED)
 
+    stats_y = 1650
+    draw.text((70, stats_y), f"Kokku tehtud: {total_done}", font=font_mid, fill=FG)
+    draw.text((70, stats_y + 62), f"Aasta eesmärk: {yearly_target}", font=font_small, fill=MUTED)
+
+    bar_x, bar_y = 70, stats_y + 132
+    bar_w, bar_h = 940, 28
+    progress = min(1.0, total_done / yearly_target) if yearly_target else 0.0
+    fill_w = int(bar_w * progress)
+
+    bar_bg = (92, 99, 114)
+    draw.rounded_rectangle((bar_x, bar_y, bar_x + bar_w, bar_y + bar_h), radius=14, fill=bar_bg)
+    if fill_w > 0:
+        fill_radius = min(14, max(3, fill_w // 2))
+        draw.rounded_rectangle((bar_x, bar_y, bar_x + fill_w, bar_y + bar_h), radius=fill_radius, fill=FG)
+
+    draw.text((bar_x, bar_y + 42), f"{total_done} / {yearly_target} ({progress * 100:.1f}%)", font=font_small, fill=MUTED)
+
     return img
 
 
-def render_four(base_rgb: Image.Image, frame_i: int, frames_n: int, speeds, stamps, tilts):
+def render_four(base_rgb: Image.Image, frame_i: int, frames_n: int, cycle_counts, stamps, tilts):
     img = base_rgb.convert("RGBA")
     draw = ImageDraw.Draw(img)
 
-    centers = [(540, 520), (540, 860), (540, 1200), (540, 1540)]
+    centers = [(540, 480), (540, 800), (540, 1120), (540, 1440)]
     scales = [1.0, 1.0, 1.0, 1.0]
 
-    base_phase = frame_i / (frames_n - 1) if frames_n > 1 else 1.0
+    base_phase = frame_i / frames_n if frames_n > 0 else 0.0
 
     for i, (cx, cy) in enumerate(centers):
-        t = (base_phase * speeds[i]) % 1.0
+        t = (base_phase * cycle_counts[i]) % 1.0
         (hx, hy), hr = draw_front_pushup(draw, cx, cy, scales[i], t, FG)
         st = stamps[i]
         if st is not None:
@@ -161,13 +208,12 @@ def render_four(base_rgb: Image.Image, frame_i: int, frames_n: int, speeds, stam
     return img
 
 
-def to_palette(im_rgba: Image.Image) -> Image.Image:
-    return im_rgba.convert("P", palette=Image.Palette.ADAPTIVE, colors=256)
-
-
 def main():
     today = date.today()
     doy = day_of_year(today)
+    year_days = days_in_year(today.year)
+    total_done = total_pushups_until_day(doy)
+    yearly_target = total_pushups_until_day(year_days)
 
     out_dir = Path("public")
     out_dir.mkdir(exist_ok=True)
@@ -175,13 +221,13 @@ def main():
     rng = daily_rng(today)
     faces = load_faces("faces")
 
-    base = make_base(today, doy)
+    base = make_base(today, doy, total_done, yearly_target)
     base.save(out_dir / "day.png", format="PNG", optimize=True)
 
     frames_n = max(12, int(FPS * DURATION_S))
     frame_ms = int(1000 / FPS)
 
-    speeds = [rng.uniform(0.75, 1.65) for _ in range(4)]
+    cycle_counts = [rng.randint(1, 3) for _ in range(4)]
     tilts = [rng.randint(-10, 10) for _ in range(4)]
 
     chosen = []
@@ -201,9 +247,14 @@ def main():
         else:
             stamps.append(face_stamp(chosen[i], int(30 * 1.0 * FACE_SCALE * 2), tilts[i]))
 
-    frames = []
+    raw_frames = []
     for i in range(frames_n):
-        frames.append(to_palette(render_four(base, i, frames_n, speeds, stamps, tilts)))
+        raw_frames.append(render_four(base, i, frames_n, cycle_counts, stamps, tilts).convert("RGB"))
+
+    first_palette = raw_frames[0].convert("P", palette=Image.Palette.ADAPTIVE, colors=256)
+    frames = [first_palette]
+    for frm in raw_frames[1:]:
+        frames.append(frm.quantize(palette=first_palette, dither=Image.Dither.NONE))
 
     frames[0].save(
         out_dir / "day.gif",
