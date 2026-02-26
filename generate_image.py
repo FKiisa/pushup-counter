@@ -158,6 +158,36 @@ def draw_front_pushup(draw: ImageDraw.ImageDraw, cx: int, cy: int, s: float, t: 
     return (hx, hy), head_r
 
 
+def draw_sweat(draw: ImageDraw.ImageDraw, hx: int, hy: int, hr: int, t: float, person_i: int):
+    effort = pushup_phase(t)
+    if effort < 0.35:
+        return
+
+    droplets = [(-1, 0.00), (1, 0.19), (-1, 0.41), (1, 0.63)]
+    active_window = 0.58
+
+    for idx, (side, offset) in enumerate(droplets):
+        phase = (t * 2.2 + offset + person_i * 0.07) % 1.0
+        if phase > active_window:
+            continue
+
+        life = phase / active_window
+        travel_x = int(side * (12 + 20 * life))
+        travel_y = int(4 + 28 * life)
+
+        x = hx + side * (hr - 6) + travel_x
+        y = hy - hr // 2 + travel_y
+
+        radius = max(2, int(5 - 2.5 * life))
+        alpha = int(215 * (1.0 - life) * (0.45 + 0.55 * effort))
+        color = (120, 185, 255, alpha)
+
+        trail_x = x - side * int(6 + 5 * life)
+        trail_y = y - int(8 + 4 * life)
+        draw.line((trail_x, trail_y, x, y), fill=color, width=1)
+        draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
+
+
 def make_base(today: date, doy: int, total_done: int, yearly_target: int) -> Image.Image:
     img = Image.new("RGB", (W, H), BG)
     draw = ImageDraw.Draw(img)
@@ -204,6 +234,7 @@ def render_four(base_rgb: Image.Image, frame_i: int, frames_n: int, cycle_counts
         st = stamps[i]
         if st is not None:
             img.alpha_composite(st, (hx - st.width // 2, hy - st.height // 2))
+            draw_sweat(draw, hx, hy, hr, t, i)
 
     return img
 
